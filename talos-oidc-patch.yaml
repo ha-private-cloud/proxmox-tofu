@@ -1,0 +1,61 @@
+# Talos machine config patch: makes the apiserver trust Authentik as an
+# OIDC issuer, so tokens Headlamp forwards (see cluster-config/headlamp.tf)
+# authenticate as the token's own identity instead of failing outright.
+# Apply to the control-plane node only, extraArgs/extraVolumes here are
+# under cluster.apiServer, which only runs on control-plane nodes anyway.
+#
+# Regenerate the CA block below whenever cluster-auth's
+# authentik_ingress_ca_cert_pem output changes (cert rotation, or a
+# `tofu apply -replace` on tls_self_signed_cert.authentik_ingress):
+#
+#   cd ../cluster-auth && tofu output -raw authentik_ingress_ca_cert_pem
+#
+# oidc-client-id is deliberately Headlamp's own client ID ("headlamp", see
+# cluster-auth/oidc.tf) rather than a separate "kubernetes" OAuth client ,
+# the apiserver validates the token's `aud` claim against oidc-client-id,
+# and the token Headlamp forwards was issued *to* Headlamp, so the
+# audience is always Headlamp's client, not some other app's.
+machine:
+  network:
+    extraHostEntries:
+      - ip: 192.168.0.16 # talos-worker-1, same host used for the workstation /etc/hosts entries
+        aliases:
+          - auth.talos.lab
+  files:
+    - path: /var/lib/kubernetes/oidc-ca.crt
+      op: create
+      permissions: 0o644
+      content: |
+        -----BEGIN CERTIFICATE-----
+        MIIDDDCCAfSgAwIBAgIQH4zO93f82h4YESNMMzRZATANBgkqhkiG9w0BAQsFADAZ
+        MRcwFQYDVQQDEw5hdXRoLnRhbG9zLmxhYjAeFw0yNjA4MTExOTIwMzlaFw0yNzA4
+        MTExOTIwMzlaMBkxFzAVBgNVBAMTDmF1dGgudGFsb3MubGFiMIIBIjANBgkqhkiG
+        9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy4AZ+zdzDUap07DaIbruaO2EHUUjVV5VeEOi
+        FdhwNFPzjrDQV1ZMBUF8xADQWBRgH8hBWMo1EYld4OTmdpkPFwNhv0SAU/aI9oyF
+        MZ19cuuNrFQfyqldlnA92NssbzvbU0r/UYlwsTs9BkYjRlqaCYpfeYtSLhmuHKQU
+        HA7dUmhjStSD3EtQGdMVP1Ax/T3lJy+1YdJGxjdAjm/6GRnrHlYZSuv7G+Ji4DfS
+        zc6MnOV57x3Pn+ME6ViJ9qqdCXCuSwgUBm0FlRGv3Uap1cgaKOhokF4qpkGsvjvG
+        xyQoC37aYhjgpp8A45UeVm2Q25n3noOiYABRws8TdrIGChWzOwIDAQABo1AwTjAO
+        BgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIw
+        ADAZBgNVHREEEjAQgg5hdXRoLnRhbG9zLmxhYjANBgkqhkiG9w0BAQsFAAOCAQEA
+        JljrmvmukNWGhJC2jM4qyMewUwQFnuLLAUxZFOss7LJ2aUGq60JyTleZzileuYpS
+        AJd1UElKWLalIINPPT+W9Ds9udQas/YQJsv4PEVw54zjLB+Z3hrNgnh2Qqdts6ET
+        cYGnjxVimQWpkSIz1XNZ/iBHOJzomYIrVvGw7USrLXFhVq4LJ6/TLWo60XOGsihT
+        Isxia8/aztM+r7RcbLjH9qRZzykLZPodpND5i3psRqtmJIBAajs71F0ixfQBTTNx
+        13wnitcLSdHR8fyBevuvweff0Ozf1mLKj48eBzsq3Aqc92Um6Gc9J+9cvGOKNjw/
+        JZSDeVvLFnCu2Iq/2C8zUA==
+        -----END CERTIFICATE-----
+cluster:
+  apiServer:
+    extraArgs:
+      oidc-issuer-url: https://auth.talos.lab/application/o/headlamp/
+      oidc-client-id: headlamp
+      oidc-ca-file: /etc/kubernetes/oidc/ca.crt
+      oidc-username-claim: preferred_username
+      # Avoids collisions with system: users / other auth methods. Must
+      # match var.oidc_username_prefix in cluster-rbac exactly.
+      oidc-username-prefix: "oidc:"
+    extraVolumes:
+      - hostPath: /var/lib/kubernetes/oidc-ca.crt
+        mountPath: /etc/kubernetes/oidc/ca.crt
+        readonly: true
