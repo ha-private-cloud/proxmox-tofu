@@ -131,6 +131,54 @@ variable "nodes" {
   }
 }
 
+variable "bastion_node_name" {
+  description = "Proxmox host for the CI bastion VM. Defaults to \"pve\" , the only host with no NFS storage VM already on it."
+  type        = string
+  default     = "pve"
+}
+
+variable "bastion_cloud_image_url" {
+  description = "URL of the openSUSE Leap cloud (Minimal-VM) qcow2 image used for the CI bastion VM."
+  type        = string
+  default     = "https://download.opensuse.org/distribution/leap/16.0/appliances/Leap-16.0-Minimal-VM.x86_64-Cloud.qcow2"
+}
+
+variable "bastion_vm_id" {
+  description = "Proxmox VM ID for the CI bastion."
+  type        = number
+  default     = 904
+}
+
+variable "bastion_cpu_cores" {
+  description = "vCPU cores for the CI bastion VM."
+  type        = number
+  default     = 2
+}
+
+variable "bastion_memory" {
+  description = "Memory for the CI bastion VM, in MB."
+  type        = number
+  default     = 4096
+}
+
+variable "bastion_disk_size" {
+  description = "OS disk size for the CI bastion VM, in GB (imported from the openSUSE cloud image, then grown to this size). Needs room for repo checkouts, the GitHub Actions runner, and build workspaces , actual image builds still happen in-cluster via cluster-ci's Kaniko Jobs, not here."
+  type        = number
+  default     = 40
+}
+
+variable "bastion_admin_username" {
+  description = "Cloud-init admin username created on the CI bastion VM."
+  type        = string
+  default     = "admin"
+}
+
+variable "bastion_ssh_public_key_path" {
+  description = "Path to an SSH public key installed for bastion_admin_username via cloud-init."
+  type        = string
+  default     = "~/.ssh/id_ed25519.pub"
+}
+
 variable "nfs_instances" {
   description = "NFS storage VMs to create, and which Proxmox host each lands on"
   type = map(object({

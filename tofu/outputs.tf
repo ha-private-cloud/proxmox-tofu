@@ -19,6 +19,17 @@ output "nfs_console_password" {
   sensitive   = true
 }
 
+output "bastion_vm_id" {
+  description = "Proxmox VM ID of the CI bastion."
+  value       = proxmox_virtual_environment_vm.bastion.vm_id
+}
+
+output "bastion_console_password" {
+  description = "CI bastion's console-login password (SSH normally uses the key instead; this is just for finding its DHCP IP via the Proxmox console)."
+  value       = random_password.bastion_console.result
+  sensitive   = true
+}
+
 output "note" {
-  value = "VMs get DHCP addresses; find them via your router's DHCP leases or the Proxmox console, then proceed with talosctl (see README.md) for the Talos nodes, or scripts/setup-nfs-server.sh for the NFS storage VM."
+  value = "VMs get DHCP addresses; find them via your router's DHCP leases or the Proxmox console, then proceed with talosctl (see README.md) for the Talos nodes, scripts/setup-nfs-server.sh for the NFS storage VM, or scripts/setup-bastion.sh for the CI bastion."
 }

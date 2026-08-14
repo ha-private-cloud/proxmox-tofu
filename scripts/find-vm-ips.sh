@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Finds the new VMs' DHCP-assigned IPs by scanning the LAN, since Proxmox
-# can't report them itself (qemu-guest-agent is disabled on both the Talos
-# and NFS VMs , see vms.tf / nfs-storage.tf). Talos VMs are identified by
-# their maintenance-mode API port (50000); NFS VMs are identified by SSHing
-# in (cloud-init trusts the same key as nfs_ssh_public_key_path) and reading
-# their hostname, which cloud-init sets to match the Tofu resource name.
+# can't report them itself (qemu-guest-agent is disabled on every VM here ,
+# see vms.tf / nfs-storage.tf / bastion.tf). Talos VMs are identified by
+# their maintenance-mode API port (50000); every other VM (NFS storage, the
+# CI bastion) is identified by SSHing in (cloud-init trusts the same key as
+# nfs_ssh_public_key_path/bastion_ssh_public_key_path) and reading its
+# hostname, which cloud-init sets to match the Tofu resource's name.
 set -euo pipefail
 
 SUBNET_PREFIX="${1:-192.168.0}"
@@ -32,7 +33,7 @@ live_count=$(printf '%s\n' "$live_hosts" | grep -c . || true)
 echo "Found $live_count live host(s). Probing port 50000 (Talos) and 22 (SSH)..." >&2
 
 talos_ips=()
-nfs_results=()
+ssh_results=()
 
 for ip in $live_hosts; do
   if timeout 1 bash -c "cat < /dev/null > /dev/tcp/$ip/50000" 2>/dev/null; then
@@ -41,8 +42,8 @@ for ip in $live_hosts; do
     hostname=$(ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=2 \
       -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
       "$SSH_USER@$ip" hostname 2>/dev/null || true)
-    if [[ "$hostname" == nfs-storage-* ]]; then
-      nfs_results+=("$hostname -> $ip")
+    if [[ -n "$hostname" ]]; then
+      ssh_results+=("$hostname -> $ip")
     fi
   fi
 done
@@ -60,9 +61,9 @@ echo "  talos-worker-N names by IP alone , any 3 of them can become control"
 echo "  planes when you run talosctl apply-config."
 
 echo
-echo "=== NFS storage VMs (identified via SSH hostname) ==="
-if [[ ${#nfs_results[@]} -eq 0 ]]; then
+echo "=== Other VMs (identified via SSH hostname , NFS storage, CI bastion) ==="
+if [[ ${#ssh_results[@]} -eq 0 ]]; then
   echo "  none found"
 else
-  printf '  %s\n' "${nfs_results[@]}"
+  printf '  %s\n' "${ssh_results[@]}"
 fi
