@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+exec 200>/tmp/sync-repos.lock
+flock 200
+
 REPOS=(cluster-cli cluster-ci clusterkeep-ui cluster-config proxmox-tofu cluster-auth cluster-rbac)
 PROJECT_DIR="${HOME}/project"
 
