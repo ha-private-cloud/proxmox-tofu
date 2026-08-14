@@ -119,7 +119,7 @@ Description=Sync ~/project repos with GitHub
 [Service]
 Type=oneshot
 User=${RUNNER_USER}
-ExecStart=${RUNNER_HOME}/project/proxmox-tofu/scripts/sync-repos.sh
+ExecStart=/usr/local/bin/sync-repos.sh
 SERVICEEOF
 cat > /etc/systemd/system/sync-repos.timer <<TIMEREOF
 [Unit]
@@ -177,11 +177,11 @@ cat <<EOF
      or SELinux autorelabel would need it re-run.
      Every repo's \`runs-on: [self-hosted]\` workflow picks up whichever
      instance is free , no per-repo registration needed any more.
-  4. Start the sync-repos timer now that the repos above are cloned:
-       sudo chcon -t bin_t ~/project/proxmox-tofu/scripts/sync-repos.sh   # same SELinux fix as runsvc.sh above , the file doesn't exist until step 2's clone, so it can't be done earlier
+  4. Seed the initial /usr/local/bin copy (one-time; sync-repos.sh
+     reinstalls itself from then on), then start the timer:
+       sudo install -m 755 ~/project/proxmox-tofu/scripts/sync-repos.sh /usr/local/bin/sync-repos.sh
        sudo systemctl start sync-repos.timer
-     (it's already enabled to start on boot; this just kicks off the first
-     run instead of waiting up to a minute for OnBootSec). Check it worked:
+     Check it worked:
        sudo systemctl status sync-repos.timer
        sudo journalctl -u sync-repos.service -n 20
 EOF

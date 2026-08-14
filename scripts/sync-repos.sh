@@ -1,22 +1,9 @@
 #!/usr/bin/env bash
-# Keeps every repo under ~/project in sync with GitHub's main branch , hard
-# reset, not just fetch+merge, so tracked files always exactly match GitHub
-# and can never accumulate local drift (a hand-edit applied directly on the
-# bastion once left cluster-ci's checkout dirty enough to block a
-# `cluster-cli tofu --tag` checkout with "uncommitted changes" , this makes
-# that structurally impossible going forward). Gitignored files (tfstate,
-# tfvars, kubeconfig, .terraform/) are untouched, since git ignores them.
-#
-# Run as the first step of every pipeline workflow (so cluster-config/
-# cluster-auth/etc always run against current code, and cluster-cli , which
-# has no workflow of its own , doesn't have to free-ride on some other
-# repo's pull step), and on a systemd timer (sync-repos.timer) so it's also
-# current between runs, e.g. for a human SSHed in running cluster-cli by
-# hand. Each workflow's own precise checkout (exact commit SHA or tag) for
-# the repo it's actually acting on still happens after this , this script
-# only establishes a clean, current baseline.
-#
-# Safe to re-run.
+# Hard-resets every repo under ~/project to origin/main, then installs
+# every scripts/*.sh into /usr/local/bin (git resets strip execute bit +
+# SELinux label each time; /usr/local/bin isn't git-managed and defaults to
+# an executable label, so run the installed copy, not the ~/project one).
+# Run at the start of every pipeline and via sync-repos.timer. Safe to re-run.
 
 set -euo pipefail
 
@@ -37,3 +24,13 @@ done
 echo "==> Reinstalling cluster-cli"
 export PATH="/usr/local/bin:${HOME}/.local/bin:${PATH}"
 uv tool install --editable "${PROJECT_DIR}/cluster-cli" --reinstall --quiet
+
+echo "==> Installing scripts/*.sh from every repo into /usr/local/bin"
+for repo in "${REPOS[@]}"; do
+  scripts_dir="${PROJECT_DIR}/${repo}/scripts"
+  [ -d "$scripts_dir" ] || continue
+  for script in "$scripts_dir"/*.sh; do
+    [ -f "$script" ] || continue
+    sudo install -m 755 "$script" "/usr/local/bin/$(basename "$script")"
+  done
+done
