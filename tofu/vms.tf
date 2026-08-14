@@ -36,7 +36,7 @@ resource "proxmox_virtual_environment_vm" "talos" {
 
   # vlan_id tags this VM's traffic for the isolated cluster VLAN , the
   # switch port facing this VM's Proxmox host must be a trunk allowing that
-  # VLAN (see ../../cluster-network). mac_address is set explicitly (rather
+  # VLAN. mac_address is set explicitly (rather
   # than left to Proxmox's auto-generation) so the Windows Server's DHCP
   # reservations can be planned/typed in ahead of a VM even existing yet.
   network_device {

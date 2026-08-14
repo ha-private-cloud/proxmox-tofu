@@ -13,7 +13,7 @@ set -euo pipefail
 
 DATA_DISK="/dev/sdb"
 MOUNT_POINT="/srv/nfs/data"
-EXPORT_SUBNET="10.10.10.0/24" # the isolated cluster VLAN , see ../../cluster-network. Was 192.168.0.0/24 before that migration; re-run this script after re-IPing to update /etc/exports.
+EXPORT_SUBNET="10.10.10.0/24" # the isolated cluster VLAN. Was 192.168.0.0/24 before that migration; re-run this script after re-IPing to update /etc/exports.
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run as root (e.g. via sudo)." >&2

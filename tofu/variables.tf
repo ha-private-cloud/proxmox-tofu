@@ -41,7 +41,7 @@ variable "network_bridge" {
 }
 
 variable "cluster_vlan_id" {
-  description = "802.1Q VLAN ID all Talos + NFS storage VM traffic is tagged with, isolating it from the flat LAN. The Proxmox hosts' own management stays untagged/native on the same physical NIC , only VM traffic is tagged. The switch ports facing each Proxmox host must be configured as trunk ports allowing this VLAN (see ../cluster-network)."
+  description = "802.1Q VLAN ID all Talos + NFS storage VM traffic is tagged with, isolating it from the flat LAN. The Proxmox hosts' own management stays untagged/native on the same physical NIC , only VM traffic is tagged. The switch ports facing each Proxmox host must be configured as trunk ports allowing this VLAN."
   type        = number
   default     = 10
 }
@@ -150,15 +150,15 @@ variable "bastion_vm_id" {
 }
 
 variable "bastion_cpu_cores" {
-  description = "vCPU cores for the CI bastion VM."
+  description = "vCPU cores for the CI bastion VM. Sized for 3 concurrent GitHub Actions runner instances (see scripts/setup-bastion.sh's RUNNER_COUNT) , the work itself is lightweight (git/tofu/helm CLI calls; image builds happen in-cluster via cluster-ci's Kaniko Jobs), so this scales gently with instance count."
   type        = number
-  default     = 2
+  default     = 4
 }
 
 variable "bastion_memory" {
-  description = "Memory for the CI bastion VM, in MB."
+  description = "Memory for the CI bastion VM, in MB. Sized for 3 concurrent runner instances , see bastion_cpu_cores."
   type        = number
-  default     = 4096
+  default     = 6144
 }
 
 variable "bastion_disk_size" {

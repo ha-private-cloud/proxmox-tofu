@@ -1,0 +1,15 @@
+name: plan
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+jobs:
+  plan:
+    runs-on: [self-hosted]
+    steps:
+      - name: Sync all repos
+        run: "$HOME/project/proxmox-tofu/scripts/sync-repos.sh"
+
+      - name: tofu plan
+        run: cluster-cli tofu proxmox-tofu --tag "${{ github.ref_name }}" plan
