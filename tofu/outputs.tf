@@ -12,3 +12,20 @@ output "bastion_vm_id" {
   description = "Proxmox VM ID of the CI bastion."
   value       = proxmox_virtual_environment_vm.bastion.vm_id
 }
+
+output "nfs_admin_username" {
+  description = "Console username for the NFS storage VMs, read by cluster-config's nfs-storage-secret.tf."
+  value       = var.nfs_admin_username
+}
+
+output "nfs_console_password" {
+  description = "Console passwords for the NFS storage VMs, read by cluster-config's nfs-storage-secret.tf."
+  value       = { for k, v in random_password.nfs_console : k => v.result }
+  sensitive   = true
+}
+
+output "bastion_console_password" {
+  description = "Console password for the CI bastion."
+  value       = random_password.bastion_console.result
+  sensitive   = true
+}
