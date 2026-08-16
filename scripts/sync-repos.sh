@@ -1,16 +1,7 @@
 #!/usr/bin/env bash
-# Hard-resets repos under ~/project to origin/main, then installs every
-# scripts/*.sh into /usr/local/bin (git resets strip execute bit + SELinux
-# label each time; /usr/local/bin isn't git-managed and defaults to an
-# executable label, so run the installed copy, not the ~/project one).
-#
-# With no arguments every repo is reset -- only safe when no pipeline is
-# running, because a reset moves a repo off the commit a build checked out.
-# Pass repo names to limit it: pipelines sync only `cluster-cli` and then
-# check out their own repo at the pushed sha themselves.
-#
-#   sync-repos.sh                # all repos
-#   sync-repos.sh cluster-cli    # just that one
+# Resets repos under ~/project to origin/main and installs every scripts/*.sh
+# into /usr/local/bin. With no arguments it resets all repos, which moves a
+# running pipeline off its checked-out commit; pass repo names to limit it.
 
 set -euo pipefail
 

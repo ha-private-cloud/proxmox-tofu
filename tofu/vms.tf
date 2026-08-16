@@ -34,15 +34,9 @@ resource "proxmox_virtual_environment_vm" "talos" {
     interface = "ide3"
   }
 
-  # vlan_id tags this VM's traffic for the isolated cluster VLAN , the
-  # switch port facing this VM's Proxmox host must be a trunk allowing that
-  # VLAN. mac_address is set explicitly (rather
-  # than left to Proxmox's auto-generation) so the Windows Server's DHCP
-  # reservations can be planned/typed in ahead of a VM even existing yet.
   network_device {
     bridge      = var.network_bridge
     model       = "virtio"
-    vlan_id     = var.cluster_vlan_id
     mac_address = format("02:00:00:00:%02x:%02x", floor(each.value.vm_id / 256), each.value.vm_id % 256)
   }
 

@@ -95,13 +95,10 @@ resource "proxmox_virtual_environment_vm" "nfs" {
     }
   }
 
-  # Same VLAN tagging + explicit MAC scheme as the Talos VMs in vms.tf , see
-  # the comment there. NFS storage moves onto the isolated cluster VLAN too,
-  # since the Talos nodes mounting it are moving there.
+  # VLAN tagging reverted 2026-08-14 , see the comment in vms.tf, same reason.
   network_device {
     bridge      = var.network_bridge
     model       = "virtio"
-    vlan_id     = var.cluster_vlan_id
     mac_address = format("02:00:00:00:%02x:%02x", floor(each.value.vm_id / 256), each.value.vm_id % 256)
   }
 

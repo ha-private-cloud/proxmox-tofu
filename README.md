@@ -51,23 +51,52 @@ The Talos VMs' disks are fully allocated to Talos's own partitions (no free spac
 
 ## CI bastion
 
-A plain openSUSE Leap VM (`ci-bastion`, on `pve`) that runs GitHub Actions self-hosted runners for the app repos (`clusterkeep-ui` to start). It's the one place, besides your own workstation, allowed to hold the files that can't live in git , the kubeconfig, each repo's `tofu/terraform.tfvars`, and `~/.config/cluster-cli/config.toml`.
+A plain openSUSE Leap VM (`ci-bastion`, on `pve`) that runs GitHub Actions self-hosted runners for every repo in the `ha-private-cloud` org (`clusterkeep-ui` plus the infra repos , see `cluster-cli/DEPLOYING.md`). It's the one place, besides your own workstation, allowed to hold the files that can't live in git , the kubeconfig, each repo's `tofu/terraform.tfvars`, and `~/.config/cluster-cli/config.toml`.
 
-1. `tofu apply` (above) creates it , find its DHCP IP via `scripts/find-vm-ips.sh` or the Proxmox console.
-2. Bootstrap it (installs git, uv, tofu, helm, kubectl, the GitHub Actions runner binary; safe to re-run):
+1. `tofu apply` creates it , find its DHCP IP via `scripts/find-vm-ips.sh` or the Proxmox console.
+2. Bootstrap it:
    ```sh
    ssh admin@<bastion-ip> 'sudo bash -s' < scripts/setup-bastion.sh
    ```
-3. Copy over the kubeconfig, each repo's `terraform.tfvars`, and a `~/.config/cluster-cli/config.toml` built from `cluster-ci`'s `runner_api_token` output , see the script's own printed output for exact paths.
-4. Clone the repos it needs (`cluster-cli`, `cluster-ci`, `clusterkeep-ui`, `cluster-config`, `proxmox-tofu`, `cluster-auth`) into `~/project/`. Use a dedicated deploy key per repo rather than your own , GitHub deploy keys are repo-scoped anyway.
-5. Register the runner against each repo needing it (Settings -> Actions -> Runners -> New self-hosted runner gives the exact token/command):
+3. Copy over the kubeconfig, each repo's `terraform.tfvars`, and a `~/.config/cluster-cli/config.toml` built from `cluster-ci`'s `runner_api_token` output
+4. Clone every repo the bastion needs (`cluster-cli`, `cluster-ci`, `clusterkeep-ui`, `cluster-config`, `proxmox-tofu`, `cluster-auth`, `cluster-rbac`) into `~/project/`. Use a dedicated deploy key per repo rather than your own.
+5. Register all 3 instances against the **org**, not any one repo:
    ```sh
-   cd ~/actions-runner && ./config.sh --url <repo-url> --token <token>
-   sudo ./svc.sh install && sudo ./svc.sh start
+   for i in $(seq 1 3); do
+     cd ~/actions-runner-$i
+     sudo -u admin ./config.sh --url https://github.com/ha-private-cloud --token <token> --name ci-bastion-$i --unattended
+     sudo chcon -t bin_t runsvc.sh   # Leap 16 ships SELinux enforcing; without this, systemd can't exec a user_home_t file (see `journalctl` for the AVC denial) and the service fails 203/EXEC
+     sudo ./svc.sh install admin && sudo ./svc.sh start
+     cd -
+   done
    ```
-6. Pushes to `clusterkeep-ui`'s `dev`/`preview`/`main` branches then trigger `.github/workflows/build.yml` there, which builds via `cluster-ci` and deploys via that repo's own Tofu.
+   Confirm all 3 came up online: `gh api orgs/ha-private-cloud/actions/runners -q '.runners[] | "\(.name): \(.status)"'`.
+6. Pushes to `clusterkeep-ui`'s `dev`/`preview`/`main` branches then trigger `.github/workflows/build.yml` there, which builds via `cluster-ci` and deploys via that repo's own Tofu; tag pushes and infra plan/apply flows are covered in `cluster-cli/DEPLOYING.md`.
 
-To rebuild on a different image: back up `~/.ssh` and `~/project` first, then `tofu apply -replace=proxmox_virtual_environment_vm.bastion` (just changing `disk.import_from` doesn't re-import an existing disk).
+## OPNsense edge firewall
+
+`tofu-firewall/` is a **separate Tofu root with its own state**, targeting a standalone Proxmox host (not `pve`/`pve2`/`pve3` , deliberately not a cluster member, so its own reboots/maintenance can't affect that cluster's Proxmox quorum/HA, and `tofu apply` in `tofu/` never touches it or vice versa). It provisions a single OPNsense VM meant to replace the physical edge firewall/router, mainly so DHCP reservations can be centrally managed there instead of nodes' IPs drifting and breaking the cluster.
+
+1. On the firewall host itself (not from here): enable IOMMU (BIOS VT-d/AMD-Vi, then `intel_iommu=on iommu=pt` or `amd_iommu=on` on the kernel cmdline, reboot), and find the WAN NIC's PCI address with `lspci -nn`.
+2. Download the OPNsense DVD ISO (bz2-compressed) from opnsense.org, decompress it locally, and upload it to that host's own ISO storage via its Proxmox UI or `pvesm`.
+3. Create `tofu-firewall/terraform.tfvars`:
+   ```
+   proxmox_api_url      = "https://192.168.0.147:8006/"
+   proxmox_username     = ""
+   proxmox_password     = ""
+   node_name            = ""
+   opnsense_iso_file_id = "local:iso/OPNsense-25.7-dvd-amd64.iso"
+   opnsense_wan_pci_id  = "0000:01:00.0"
+   ```
+4. Run tofu:
+   ```sh
+   cd tofu-firewall
+   tofu init
+   tofu plan
+   tofu apply
+   ```
+5. Boot the VM's console in the Proxmox UI and run through the OPNsense installer against the ISO. Once installed, configure LAN/WAN interfaces, then set up DHCP static reservations (by MAC) for the cluster nodes, matching their current IPs , all from OPNsense's own web UI/config, not Tofu.
+6. Before cutting over: keep the old physical firewall powered off (not reset) as a rollback until the new one's held up under real traffic for a while. The actual cable swap will cause a brief blip regardless (lease renewal/ARP), so do it during a window where that's acceptable , it'll also interrupt the Cloudflare Tunnel to `login.clusterkeep.com` for that window.
 
 ## Adding new Talos nodes to an existing cluster
 
@@ -94,7 +123,7 @@ New nodes typically show `NotReady` for the first ~30-60s (CNI/kubelet sync) and
 This changes the live control-plane's apiserver config, so it's not run as part of `tofu apply` , apply it yourself once per control-plane node, and again any time the CA cert block in the patch file is regenerated. With 3 control planes, apply it **one node at a time**, waiting for each to come back before moving to the next:
 
 ```sh
-for ip in 10.10.10.11 10.10.10.21 10.10.10.31; do  # talos-cp-1/2/3 , see ../cluster-network for the addressing scheme
+for ip in 10.10.10.11 10.10.10.21 10.10.10.31; do  # talos-cp-1/2/3
   talosctl patch mc --patch-file talos-oidc-patch.yaml \
     --nodes "$ip" --endpoints "$ip" \
     --talosconfig _out/talosconfig
