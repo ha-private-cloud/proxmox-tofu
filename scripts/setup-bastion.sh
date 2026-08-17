@@ -110,33 +110,12 @@ rm -f /tmp/actions-runner.tar.gz
 echo "==> Creating ~/project (sibling repo layout cluster-cli expects)"
 sudo -u "$RUNNER_USER" mkdir -p "${RUNNER_HOME}/project"
 
-echo "==> Installing sync-repos timer (keeps ~/project current with GitHub"
-echo "    even between pipeline runs , see scripts/sync-repos.sh)"
-cat > /etc/systemd/system/sync-repos.service <<SERVICEEOF
-[Unit]
-Description=Sync ~/project repos with GitHub
-
-[Service]
-Type=oneshot
-User=${RUNNER_USER}
-ExecStart=/usr/local/bin/sync-repos.sh
-SERVICEEOF
-cat > /etc/systemd/system/sync-repos.timer <<TIMEREOF
-[Unit]
-Description=Run sync-repos.service every 5 minutes
-
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=5min
-
-[Install]
-WantedBy=timers.target
-TIMEREOF
+echo "==> Removing the sync-repos timer if present"
+# Every workflow syncs as its first step, so a scheduled sync adds nothing and
+# can reset a repo out from under a running tofu apply. Don't reinstate it.
+systemctl disable --now sync-repos.timer >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/sync-repos.timer /etc/systemd/system/sync-repos.service
 systemctl daemon-reload
-# Not started here , sync-repos.sh needs cluster-cli actually cloned first
-# (step 4 below), which hasn't happened yet on a fresh bastion. Enable it
-# once that's done: `sudo systemctl enable --now sync-repos.timer`.
-systemctl enable sync-repos.timer
 
 cat <<EOF
 
@@ -178,10 +157,11 @@ cat <<EOF
      Every repo's \`runs-on: [self-hosted]\` workflow picks up whichever
      instance is free , no per-repo registration needed any more.
   4. Seed the initial /usr/local/bin copy (one-time; sync-repos.sh
-     reinstalls itself from then on), then start the timer:
+     reinstalls itself from then on):
        sudo install -m 755 ~/project/proxmox-tofu/scripts/sync-repos.sh /usr/local/bin/sync-repos.sh
-       sudo systemctl start sync-repos.timer
      Check it worked:
-       sudo systemctl status sync-repos.timer
-       sudo journalctl -u sync-repos.service -n 20
+       sync-repos.sh cluster-cli
+     There is no scheduled sync , every workflow syncs the repos it needs as
+     its first step. Run sync-repos.sh yourself before a manual cluster-cli
+     session on this box.
 EOF

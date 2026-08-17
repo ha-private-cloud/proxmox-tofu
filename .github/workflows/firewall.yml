@@ -1,0 +1,42 @@
+name: firewall
+
+on:
+  push:
+    tags: ["fw-v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to apply (check its plan run first)"
+        required: true
+        type: string
+
+concurrency:
+  group: tofu-proxmox-tofu
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.event_name == 'push'
+    runs-on: [self-hosted]
+    steps:
+      - name: Sync repos
+        run: sync-repos.sh cluster-cli proxmox-tofu
+
+      - name: tofu init
+        run: cluster-cli tofu proxmox-tofu-firewall --tag "${{ github.ref_name }}" init -input=false
+
+      - name: tofu plan
+        run: cluster-cli tofu proxmox-tofu-firewall plan -input=false
+
+  apply:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted]
+    steps:
+      - name: Sync repos
+        run: sync-repos.sh cluster-cli proxmox-tofu
+
+      - name: tofu init
+        run: cluster-cli tofu proxmox-tofu-firewall --tag "${{ inputs.tag }}" init -input=false
+
+      - name: tofu apply
+        run: cluster-cli tofu proxmox-tofu-firewall apply -auto-approve -input=false

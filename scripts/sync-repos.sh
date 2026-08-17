@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Resets repos under ~/project to origin/main and installs every scripts/*.sh
-# into /usr/local/bin. With no arguments it resets all repos, which moves a
-# running pipeline off its checked-out commit; pass repo names to limit it.
+# into /usr/local/bin. With no arguments it resets all repos; pass repo names
+# to limit it. Waits on the same lock cluster-cli holds for the duration of a
+# tofu run, so a timer-driven sync can't move a running pipeline off its tag.
 
 set -euo pipefail
 
 exec 200>/tmp/sync-repos.lock
-flock 200
+if ! flock -w 900 200; then
+  echo "==> lock held (tofu run or another sync in progress), skipping this sync" >&2
+  exit 0
+fi
 
 ALL_REPOS=(cluster-cli cluster-ci clusterkeep-ui cluster-config proxmox-tofu cluster-auth cluster-rbac)
 PROJECT_DIR="${HOME}/project"

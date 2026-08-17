@@ -62,13 +62,14 @@ variable "opnsense_disk_size" {
   default     = 20
 }
 
-variable "opnsense_wan_pci_id" {
-  description = "PCI address of the physical WAN NIC to pass through to the OPNsense VM, e.g. \"0000:01:00.0\". Find via `lspci -nn` on this host. Requires IOMMU enabled on this host first: BIOS VT-d/AMD-Vi, plus `intel_iommu=on iommu=pt` (or `amd_iommu=on`) on the kernel cmdline, then reboot , Tofu can't do this part for you."
+variable "opnsense_wan_bridge" {
+  description = "Proxmox bridge on this host backed by the onboard NIC, used as the OPNsense WAN uplink. This bridge must have no IP address on the Proxmox host itself , anything addressed on it is exposed to the WAN side. PCI passthrough is not used: this host's onboard I219-V sits in IOMMU group 7 with the LPC bridge, SMBus and SPI controller (no ACS on this chipset), so it cannot be isolated without the ACS-override kernel patch."
   type        = string
+  default     = "vmbr0"
 }
 
 variable "opnsense_lan_bridge" {
-  description = "Proxmox bridge on this host that the OPNsense LAN interface attaches to , this is what the rest of the LAN, including the cluster nodes, ends up hanging off of"
+  description = "Proxmox bridge on this host backed by the second NIC, carrying both the OPNsense LAN interface and this host's own management IP , keeping mgmt here means the host stays reachable if the OPNsense VM is down or misconfigured"
   type        = string
-  default     = "vmbr0"
+  default     = "vmbr1"
 }
