@@ -31,6 +31,7 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   }
 
   cdrom {
+    enabled   = true
     file_id   = var.opnsense_iso_file_id
     interface = "ide3"
   }
