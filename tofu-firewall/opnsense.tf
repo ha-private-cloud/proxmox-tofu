@@ -40,8 +40,6 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   # rather than flipping it post-install.
   boot_order = ["scsi0", "ide3"]
 
-  # Order is the interface order inside OPNsense: net0 is vtnet0 (WAN), net1 is
-  # vtnet1 (LAN). Swapping these blocks silently swaps WAN and LAN at install.
   network_device {
     bridge = var.opnsense_wan_bridge
     model  = "virtio"

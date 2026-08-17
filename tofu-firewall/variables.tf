@@ -63,13 +63,13 @@ variable "opnsense_disk_size" {
 }
 
 variable "opnsense_wan_bridge" {
-  description = "Proxmox bridge on this host backed by the onboard NIC, used as the OPNsense WAN uplink. This bridge must have no IP address on the Proxmox host itself , anything addressed on it is exposed to the WAN side. PCI passthrough is not used: this host's onboard I219-V sits in IOMMU group 7 with the LPC bridge, SMBus and SPI controller (no ACS on this chipset), so it cannot be isolated without the ACS-override kernel patch."
+  description = "Proxmox bridge for the OPNsense WAN uplink. Must have no IP on the host."
   type        = string
   default     = "vmbr0"
 }
 
 variable "opnsense_lan_bridge" {
-  description = "Proxmox bridge on this host backed by the second NIC, carrying both the OPNsense LAN interface and this host's own management IP , keeping mgmt here means the host stays reachable if the OPNsense VM is down or misconfigured"
+  description = "Proxmox bridge for the OPNsense LAN interface, and the host's own management IP."
   type        = string
   default     = "vmbr1"
 }

@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
-# One-time bootstrap for the nfs-storage VM: formats and mounts the second
-# (data) disk Tofu attached at scsi1 (shows up as /dev/sdb in the guest),
-# installs nfs-kernel-server, and exports it to the cluster subnet.
+# Bootstrap the nfs-storage VM: format/mount the data disk at scsi1 (/dev/sdb),
+# install nfs-kernel-server, export it to the cluster subnet.
 #
-# Run this on the nfs-storage VM itself, e.g.:
+# Run on the VM itself:
 #   ssh admin@<nfs-storage-ip> 'sudo bash -s' < scripts/setup-nfs-server.sh
 #
-# Safe to re-run: skips formatting if the data disk is already formatted
-# and mounted, and exportfs/apt steps are idempotent.
+# Safe to re-run.
 
 set -euo pipefail
 
 DATA_DISK="/dev/sdb"
 MOUNT_POINT="/srv/nfs/data"
-EXPORT_SUBNET="192.168.0.0/24" # must match the subnet the cluster nodes are on, or every existing NFS mount is cut off on the next re-run.
+EXPORT_SUBNET="192.168.0.0/24"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run as root (e.g. via sudo)." >&2

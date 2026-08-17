@@ -1,43 +1,22 @@
 #!/usr/bin/env bash
-# One-time bootstrap for the CI bastion VM (openSUSE Leap): installs the
-# tooling `cluster-cli`/`tofu`/`helm` need (git, python3/uv, OpenTofu, Helm,
-# kubectl), plus the GitHub Actions self-hosted runner binary. Does NOT
-# register the runner against any repo , that needs a short-lived token
-# from GitHub's own UI/API (Settings -> Actions -> Runners -> New
-# self-hosted runner), which only you can generate; see proxmox-tofu's
-# README for that step and everything else this script doesn't cover
-# (copying the kubeconfig/tfvars over, cloning the app repos).
+# One-time bootstrap for the CI bastion VM (openSUSE Leap). Does NOT register
+# the runner against GitHub , see proxmox-tofu's README for that and the rest.
 #
-# GitHub's actions-runner isn't officially tested against openSUSE (its own
-# installdependencies.sh only covers Ubuntu/Fedora/CentOS-family) , the
-# icu/openssl packages below cover its known shared-library needs, but if
-# `run.sh` fails to start, missing dependencies are the first thing to
-# check (`ldd bin/Runner.Listener` for anything "not found").
-#
-# Run this on the bastion VM itself, e.g.:
+# Run on the bastion itself:
 #   ssh admin@<bastion-ip> 'sudo bash -s' < scripts/setup-bastion.sh
 #
-# Safe to re-run: every step below is idempotent.
+# Safe to re-run.
 
 set -euo pipefail
 
-# openSUSE's default `sudo` secure_path excludes /usr/local/bin (unlike
-# Debian's), which is exactly where the helm/kubectl installers below put
-# their binaries , without this, root's own PATH can't see what it just
-# installed and each installer's self-check fails right after succeeding.
+# openSUSE's sudo secure_path excludes /usr/local/bin, where the installers land.
 export PATH="/usr/local/bin:${PATH}"
 
 RUNNER_VERSION="2.321.0"
 RUNNER_USER="${SUDO_USER:-admin}"
 RUNNER_HOME="/home/${RUNNER_USER}"
 
-# How many separate runner instances to install , each is its own directory
-# + its own systemd service, so this many jobs can run concurrently on this
-# one VM. The work itself is lightweight (git/tofu/helm CLI calls; actual
-# image builds happen in-cluster via cluster-ci's Kaniko Jobs), so several
-# instances fit comfortably on one small VM , see proxmox-tofu's
-# bastion_cpu_cores/bastion_memory, sized to match this default. Bump both
-# together if you need more parallelism.
+# Bump alongside bastion_cpu_cores/bastion_memory in tofu/variables.tf.
 RUNNER_COUNT="${RUNNER_COUNT:-3}"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -49,17 +28,9 @@ echo "==> Installing git, curl, tar, unzip, python3, podman"
 zypper --non-interactive refresh
 zypper --non-interactive install --no-recommends \
   git curl ca-certificates tar unzip python3 python3-pip podman >/dev/null
-# podman (not docker): daemonless, ships with openSUSE Leap , used by
-# cluster-ci/scripts/rebuild-runner.sh to rebuild the ci-runner image
-# directly on the bastion rather than via an in-cluster Kaniko Job.
 
 echo "==> Installing actions-runner's shared-lib deps (best-effort , exact"
 echo "    package names vary by openSUSE version, this is not fatal if it fails)"
-# libicu's package name has already moved once between Leap versions
-# (74_2 -> 77 on Leap 16) , try both rather than guess wrong and silently
-# skip. Neither being available isn't fatal (see the fallback message),
-# but confirmed needed on Leap 16 specifically (config.sh refuses to run
-# without it: "Libicu's dependencies is missing for Dotnet Core 6.0").
 zypper --non-interactive install --no-recommends libicu77 libopenssl3 krb5 2>&1 \
   || zypper --non-interactive install --no-recommends libicu74_2 libopenssl3 krb5 2>&1 \
   || echo "    skipped/failed , if config.sh later refuses to run citing Dotnet Core/libicu, or run.sh fails with a missing .so, 'ldd bin/Runner.Listener' will show what's actually needed"
@@ -73,8 +44,6 @@ echo "==> Installing OpenTofu"
 if ! command -v tofu >/dev/null 2>&1; then
   curl -fsSL https://get.opentofu.org/install-opentofu.sh -o /tmp/install-opentofu.sh
   chmod +x /tmp/install-opentofu.sh
-  # standalone, not --install-method rpm/deb , works the same regardless of
-  # the guest OS's packaging, no need to special-case zypper here.
   /tmp/install-opentofu.sh --install-method standalone
   rm -f /tmp/install-opentofu.sh
 fi
@@ -91,11 +60,6 @@ if ! command -v kubectl >/dev/null 2>&1; then
 fi
 
 echo "==> Installing ${RUNNER_COUNT} GitHub Actions runner instance(s) v${RUNNER_VERSION}"
-# Each instance needs its own directory , the runner binary refuses to
-# share one directory between two registrations. actions-runner-1,
-# actions-runner-2, ... rather than a single actions-runner, so
-# RUNNER_COUNT can be bumped later just by re-running this script (already
-#-installed instances are skipped via the run.sh check, same as before).
 curl -fsSL -o /tmp/actions-runner.tar.gz \
   https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
 for i in $(seq 1 "$RUNNER_COUNT"); do
@@ -111,8 +75,6 @@ echo "==> Creating ~/project (sibling repo layout cluster-cli expects)"
 sudo -u "$RUNNER_USER" mkdir -p "${RUNNER_HOME}/project"
 
 echo "==> Removing the sync-repos timer if present"
-# Every workflow syncs as its first step, so a scheduled sync adds nothing and
-# can reset a repo out from under a running tofu apply. Don't reinstate it.
 systemctl disable --now sync-repos.timer >/dev/null 2>&1 || true
 rm -f /etc/systemd/system/sync-repos.timer /etc/systemd/system/sync-repos.service
 systemctl daemon-reload
@@ -161,7 +123,4 @@ cat <<EOF
        sudo install -m 755 ~/project/proxmox-tofu/scripts/sync-repos.sh /usr/local/bin/sync-repos.sh
      Check it worked:
        sync-repos.sh cluster-cli
-     There is no scheduled sync , every workflow syncs the repos it needs as
-     its first step. Run sync-repos.sh yourself before a manual cluster-cli
-     session on this box.
 EOF

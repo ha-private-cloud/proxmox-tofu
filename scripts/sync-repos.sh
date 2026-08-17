@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Resets repos under ~/project to origin/main and installs every scripts/*.sh
 # into /usr/local/bin. With no arguments it resets all repos; pass repo names
-# to limit it. Waits on the same lock cluster-cli holds for the duration of a
-# tofu run, so a timer-driven sync can't move a running pipeline off its tag.
+# to limit it.
 
 set -euo pipefail
 

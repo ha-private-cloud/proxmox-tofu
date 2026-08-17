@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
-# Finds the new VMs' DHCP-assigned IPs by scanning the LAN, since Proxmox
-# can't report them itself (qemu-guest-agent is disabled on every VM here ,
-# see vms.tf / nfs-storage.tf / bastion.tf). Talos VMs are identified by
-# their maintenance-mode API port (50000); every other VM (NFS storage, the
-# CI bastion) is identified by SSHing in (cloud-init trusts the same key as
-# nfs_ssh_public_key_path/bastion_ssh_public_key_path) and reading its
-# hostname, which cloud-init sets to match the Tofu resource's name.
+# Find VMs' DHCP-assigned IPs by scanning the LAN , qemu-guest-agent is
+# disabled on every VM here, so Proxmox can't report them. Talos VMs answer on
+# :50000; the rest are identified by SSHing in and reading their hostname.
 set -euo pipefail
 
 SUBNET_PREFIX="${1:-192.168.0}"
