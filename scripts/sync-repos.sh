@@ -11,7 +11,7 @@ if ! flock -w 900 200; then
   exit 0
 fi
 
-ALL_REPOS=(cluster-cli cluster-ci clusterkeep-ui cluster-config proxmox-tofu cluster-auth cluster-rbac charts)
+ALL_REPOS=(cluster-cli cluster-ci clusterkeep-ui cluster-config proxmox-tofu cluster-auth cluster-rbac charts storage-ui auth-api)
 PROJECT_DIR="${HOME}/project"
 
 if [ "$#" -gt 0 ]; then
