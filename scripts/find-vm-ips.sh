@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Find VMs' DHCP-assigned IPs by scanning the LAN , qemu-guest-agent is
-# disabled on every VM here, so Proxmox can't report them. Talos VMs answer on
-# :50000; the rest are identified by SSHing in and reading their hostname.
 set -euo pipefail
 
 SUBNET_PREFIX="${1:-192.168.0}"

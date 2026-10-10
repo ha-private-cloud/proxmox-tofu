@@ -1,7 +1,3 @@
-# Dedicated storage VM (not a Talos node): plain Debian, running an NFS
-# server that backs the cluster's csi-driver-nfs StorageClass. Talos nodes'
-# own disks are already fully allocated to Talos's own partitions, so
-# cluster storage lives here instead of on the Talos VMs themselves.
 resource "random_password" "nfs_console" {
   for_each = var.nfs_instances
 
@@ -32,26 +28,16 @@ resource "proxmox_virtual_environment_vm" "nfs" {
   bios    = "ovmf"
   machine = "q35"
 
-  # type = "host": the synthetic "x86-64-v2-AES" type (used for the Talos
-  # VMs) triggers a reproducible early-boot kernel panic on this Debian
-  # cloud image (crashes identically in apparmor_file_permission every
-  # time) , likely a BPF-JIT/CPU-feature mismatch AppArmor/seccomp hits
-  # that Talos's minimal userspace never exercises. "host" passes the real
-  # CPU through 1:1, which sidesteps it; fine since this is a single,
-  # non-migrating Proxmox host.
   cpu {
     cores = var.nfs_vm_cpu_cores
-    type  = "host"
+    # x86-64-v2-AES kernel-panics the Debian cloud image at boot.
+    type = "host"
   }
 
   memory {
     dedicated = var.nfs_vm_memory
   }
 
-  # OS disk: imported from the Debian cloud image, then grown to the
-  # configured size (the source image itself is only a few GB).
-  # aio = "native": io_uring (the provider default) can corrupt data on
-  # import on some LVM-thin setups, observed here as an early init crash.
   disk {
     datastore_id = var.vm_datastore_id
     interface    = "scsi0"
@@ -61,8 +47,6 @@ resource "proxmox_virtual_environment_vm" "nfs" {
     aio          = "native"
   }
 
-  # Dedicated blank data disk exported over NFS. Formatted and mounted by
-  # scripts/setup-nfs-server.sh (see README) , Tofu only provisions it.
   disk {
     datastore_id = var.vm_datastore_id
     interface    = "scsi1"
@@ -88,14 +72,10 @@ resource "proxmox_virtual_environment_vm" "nfs" {
     user_account {
       username = var.nfs_admin_username
       keys     = [trimspace(file(pathexpand(var.nfs_ssh_public_key_path)))]
-      # Console-only fallback for finding this VM's DHCP IP (no easy way to
-      # discover it otherwise , enabling the guest agent for this hung
-      # waiting on the channel to attach, so this is the simpler path).
       password = random_password.nfs_console[each.key].result
     }
   }
 
-  # VLAN tagging reverted 2026-08-14 , see the comment in vms.tf, same reason.
   network_device {
     bridge      = var.network_bridge
     model       = "virtio"

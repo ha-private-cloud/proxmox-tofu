@@ -14,12 +14,12 @@ output "bastion_vm_id" {
 }
 
 output "nfs_admin_username" {
-  description = "Console username for the NFS storage VMs, read by cluster-config's nfs-storage-secret.tf."
+  description = "Console username for the NFS storage VMs."
   value       = var.nfs_admin_username
 }
 
 output "nfs_console_password" {
-  description = "Console passwords for the NFS storage VMs, read by cluster-config's nfs-storage-secret.tf."
+  description = "Map of NFS storage VM name to console password."
   value       = { for k, v in random_password.nfs_console : k => v.result }
   sensitive   = true
 }

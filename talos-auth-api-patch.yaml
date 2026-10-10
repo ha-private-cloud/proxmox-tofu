@@ -1,0 +1,29 @@
+# Control-plane nodes only. On nodes that had talos-oidc-patch.yaml, apply together with talos-oidc-removal.yaml.
+machine:
+  files:
+    - path: /var/lib/kubernetes/authentication-config.yaml
+      op: create
+      permissions: 0o644
+      content: |
+        apiVersion: apiserver.config.k8s.io/v1
+        kind: AuthenticationConfiguration
+        jwt:
+          - issuer:
+              url: https://auth.clusterkeep.com
+              audiences: ["headlamp"]
+            claimMappings:
+              username:
+                claim: preferred_username
+                prefix: "oidc:"
+              groups:
+                claim: groups
+                # Must match var.oidc_groups_prefix in cluster-auth; a blank prefix would let auth-api grant system:masters.
+                prefix: "oidc:"
+cluster:
+  apiServer:
+    extraArgs:
+      authentication-config: /etc/kubernetes/auth/authentication-config.yaml
+    extraVolumes:
+      - hostPath: /var/lib/kubernetes/authentication-config.yaml
+        mountPath: /etc/kubernetes/auth/authentication-config.yaml
+        readonly: true

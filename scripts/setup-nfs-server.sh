@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Bootstrap the nfs-storage VM: format/mount the data disk at scsi1 (/dev/sdb),
-# install nfs-kernel-server, export it to the cluster subnet.
-#
-# Run on the VM itself:
-#   ssh admin@<nfs-storage-ip> 'sudo bash -s' < scripts/setup-nfs-server.sh
-#
-# Safe to re-run.
-
 set -euo pipefail
 
 DATA_DISK="/dev/sdb"

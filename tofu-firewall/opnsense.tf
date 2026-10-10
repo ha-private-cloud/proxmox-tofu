@@ -6,9 +6,6 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   bios    = "ovmf"
   machine = "q35"
 
-  # Single, non-migrating standalone host , passing the real CPU through
-  # avoids any synthetic-CPU-type surprises (see ../tofu/nfs-storage.tf's
-  # comment on the same tradeoff for the same reason).
   cpu {
     cores = var.opnsense_cpu_cores
     type  = "host"
@@ -36,9 +33,6 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
     interface = "ide3"
   }
 
-  # Boots from the installer ISO until OPNsense is installed to disk; scsi0
-  # takes priority once it's bootable, so this is safe to leave as-is
-  # rather than flipping it post-install.
   boot_order = ["scsi0", "ide3"]
 
   network_device {
@@ -55,7 +49,6 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
     enabled = false
   }
 
-  # FreeBSD-based, not Linux.
   operating_system {
     type = "other"
   }

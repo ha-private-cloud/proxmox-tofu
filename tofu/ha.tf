@@ -1,5 +1,3 @@
-# Every VM's disk is on its host's local storage, so the node-affinity rules
-# below must stay strict or HA will try to start a VM where its disk isn't.
 locals {
   ha_vms = merge(
     { for name, node in var.nodes : name => { vm_id = node.vm_id, node_name = node.node_name } },

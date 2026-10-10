@@ -1,22 +1,12 @@
 #!/usr/bin/env bash
-# One-time bootstrap for the CI bastion VM (openSUSE Leap). Does NOT register
-# the runner against GitHub , see proxmox-tofu's README for that and the rest.
-#
-# Run on the bastion itself:
-#   ssh admin@<bastion-ip> 'sudo bash -s' < scripts/setup-bastion.sh
-#
-# Safe to re-run.
-
 set -euo pipefail
 
-# openSUSE's sudo secure_path excludes /usr/local/bin, where the installers land.
 export PATH="/usr/local/bin:${PATH}"
 
 RUNNER_VERSION="2.321.0"
 RUNNER_USER="${SUDO_USER:-admin}"
 RUNNER_HOME="/home/${RUNNER_USER}"
 
-# Bump alongside bastion_cpu_cores/bastion_memory in tofu/variables.tf.
 RUNNER_COUNT="${RUNNER_COUNT:-3}"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -81,45 +71,28 @@ systemctl daemon-reload
 
 cat <<EOF
 
-==> Done. Still needed (see proxmox-tofu/README.md's "CI bastion" section):
+==> Done. Still needed:
   1. Copy the non-git files this bastion needs, from your workstation:
        scp ../proxmox-tofu/_out/kubeconfig            ${RUNNER_USER}@<bastion-ip>:${RUNNER_HOME}/project/proxmox-tofu/_out/kubeconfig
        scp ~/.config/cluster-cli/config.toml           ${RUNNER_USER}@<bastion-ip>:${RUNNER_HOME}/.config/cluster-cli/config.toml
        scp <repo>/tofu/terraform.tfvars                ${RUNNER_USER}@<bastion-ip>:${RUNNER_HOME}/project/<repo>/tofu/terraform.tfvars
-     (repeat the tfvars line for every repo under ~/project with one, e.g. cluster-config, clusterkeep-ui)
+     (repeat the tfvars line for every repo under ~/project with one)
   2. Clone every ~/project repo the bastion needs (cluster-cli, cluster-ci,
-     clusterkeep-ui, cluster-config, proxmox-tofu, cluster-auth, cluster-rbac
+     clusterkeep-ui, cluster-config, proxmox-tofu, cluster-auth
      at minimum) into ${RUNNER_HOME}/project/, then
      \`uv tool install --editable cluster-cli\`.
-  3. Register each of the ${RUNNER_COUNT} runner instances (actions-runner-1
-     .. actions-runner-${RUNNER_COUNT}) against the GitHub **org**, not any
-     one repo , org Settings -> Actions -> Runners -> New runner gives a
-     token good for all of them (reuse the same token across instances,
-     it's not single-use). Give each instance a distinct --name so they
-     don't collide in the org's runner list:
+  3. Register each of the ${RUNNER_COUNT} runner instances against the
+     GitHub org (Settings -> Actions -> Runners -> New runner), reusing
+     one token and giving each a distinct --name:
        for i in \$(seq 1 ${RUNNER_COUNT}); do
          cd ${RUNNER_HOME}/actions-runner-\$i
          sudo -u ${RUNNER_USER} ./config.sh --url https://github.com/<org> --token <token> --name ci-bastion-\$i --unattended
-         sudo chcon -t bin_t runsvc.sh   # see note below , needed before svc.sh install on SELinux-enforcing systems (Leap 16 default)
+         sudo chcon -t bin_t runsvc.sh
          sudo ./svc.sh install ${RUNNER_USER}
          sudo ./svc.sh start
          cd -
        done
-     If \`systemctl status\` on the resulting service shows a 203/EXEC
-     failure ("Permission denied" spawning runsvc.sh) even with the chcon
-     above, SELinux is enforcing and blocking init from executing a
-     user_home_t-labeled file (Leap 16 ships SELinux enforcing by default ,
-     check with \`getenforce\`/\`cat /sys/fs/selinux/enforce\`); the chcon
-     line re-labels runsvc.sh to bin_t, which init_t is allowed to exec ,
-     confirmed via \`sudo journalctl\` showing an AVC \`denied { execute }\`
-     otherwise. This isn't persisted through \`semanage fcontext\` (this
-     image doesn't ship a working \`semanage\` binary, only its Python
-     module) , it survives normal operation fine, but a full \`restorecon -R /\`
-     or SELinux autorelabel would need it re-run.
-     Every repo's \`runs-on: [self-hosted]\` workflow picks up whichever
-     instance is free , no per-repo registration needed any more.
-  4. Seed the initial /usr/local/bin copy (one-time; sync-repos.sh
-     reinstalls itself from then on):
+  4. Seed the initial /usr/local/bin copy of sync-repos.sh:
        sudo install -m 755 ~/project/proxmox-tofu/scripts/sync-repos.sh /usr/local/bin/sync-repos.sh
      Check it worked:
        sync-repos.sh cluster-cli

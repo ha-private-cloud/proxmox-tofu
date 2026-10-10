@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Resets repos under ~/project to origin/main and installs every scripts/*.sh
-# into /usr/local/bin. With no arguments it resets all repos; pass repo names
-# to limit it.
-
 set -euo pipefail
 
 exec 200>/tmp/sync-repos.lock
@@ -11,7 +7,7 @@ if ! flock -w 900 200; then
   exit 0
 fi
 
-ALL_REPOS=(cluster-cli cluster-ci clusterkeep-ui cluster-config proxmox-tofu cluster-auth cluster-rbac charts storage-ui auth-api)
+ALL_REPOS=(cluster-cli cluster-ci clusterkeep-ui cluster-config proxmox-tofu cluster-auth charts storage-ui auth-api)
 PROJECT_DIR="${HOME}/project"
 
 if [ "$#" -gt 0 ]; then

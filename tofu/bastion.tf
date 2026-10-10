@@ -1,8 +1,3 @@
-# CI bastion: plain openSUSE Leap VM that hosts what
-# GitHub Actions self-hosted runners for the app repos actually run
-# against , the kubeconfig, each repo's gitignored terraform.tfvars, and
-# ~/.config/cluster-cli/config.toml. Runners poll GitHub outbound, 
-# so nothing about this needs to be reachable from the internet inbound
 resource "proxmox_download_file" "bastion_cloud_image" {
   content_type = "import"
   datastore_id = var.iso_datastore_id
@@ -62,8 +57,6 @@ resource "proxmox_virtual_environment_vm" "bastion" {
     user_account {
       username = var.bastion_admin_username
       keys     = [trimspace(file(pathexpand(var.bastion_ssh_public_key_path)))]
-      # Console-only fallback for finding this VM's DHCP IP , same reasoning
-      # as nfs-storage.tf's random_password.nfs_console.
       password = random_password.bastion_console.result
     }
   }

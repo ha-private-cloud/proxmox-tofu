@@ -59,7 +59,7 @@ A plain openSUSE Leap VM (`ci-bastion`, on `pve`) that runs GitHub Actions self-
    ssh admin@<bastion-ip> 'sudo bash -s' < scripts/setup-bastion.sh
    ```
 3. Copy over the kubeconfig, each repo's `terraform.tfvars`, and a `~/.config/cluster-cli/config.toml` built from `cluster-ci`'s `runner_api_token` output
-4. Clone every repo the bastion needs (`cluster-cli`, `cluster-ci`, `clusterkeep-ui`, `cluster-config`, `proxmox-tofu`, `cluster-auth`, `cluster-rbac`) into `~/project/`. Use a dedicated deploy key per repo rather than your own.
+4. Clone every repo the bastion needs (`cluster-cli`, `cluster-ci`, `clusterkeep-ui`, `cluster-config`, `proxmox-tofu`, `cluster-auth`, `cluster-rbac`, `auth-api`, `storage-ui`) into `~/project/`. Use a dedicated deploy key per repo rather than your own.
 5. Register all 3 instances against the **org**, not any one repo:
    ```sh
    for i in $(seq 1 3); do

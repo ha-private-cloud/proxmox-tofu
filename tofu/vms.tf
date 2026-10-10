@@ -40,8 +40,6 @@ resource "proxmox_virtual_environment_vm" "talos" {
     mac_address = format("02:00:00:00:%02x:%02x", floor(each.value.vm_id / 256), each.value.vm_id % 256)
   }
 
-  # Boots from disk once Talos is installed; falls back to the ISO
-  # (maintenance mode) whenever the disk has no bootable install yet.
   boot_order = ["scsi0", "ide3"]
 
   agent {

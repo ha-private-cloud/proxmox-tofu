@@ -5,7 +5,7 @@ variable "proxmox_api_url" {
 }
 
 variable "proxmox_insecure" {
-  description = "Skip TLS certificate verification (needed for self-signed Proxmox certs)"
+  description = "Skip TLS certificate verification"
   type        = bool
   default     = true
 }
@@ -41,7 +41,7 @@ variable "network_bridge" {
 }
 
 variable "cluster_vlan_id" {
-  description = "802.1Q VLAN ID all Talos + NFS storage VM traffic is tagged with, isolating it from the flat LAN. The Proxmox hosts' own management stays untagged/native on the same physical NIC , only VM traffic is tagged. The switch ports facing each Proxmox host must be configured as trunk ports allowing this VLAN."
+  description = "802.1Q VLAN ID for Talos and NFS storage VM traffic"
   type        = number
   default     = 10
 }
@@ -83,7 +83,7 @@ variable "nfs_vm_memory" {
 }
 
 variable "nfs_os_disk_size" {
-  description = "OS disk size for the NFS storage VM, in GB (imported from the Debian cloud image, then grown to this size)"
+  description = "OS disk size for the NFS storage VM, in GB"
   type        = number
   default     = 16
 }
@@ -132,7 +132,7 @@ variable "nodes" {
 }
 
 variable "bastion_node_name" {
-  description = "Proxmox host for the CI bastion VM. Defaults to \"pve\" , the only host with no NFS storage VM already on it."
+  description = "Proxmox host for the CI bastion VM."
   type        = string
   default     = "pve"
 }
@@ -150,19 +150,19 @@ variable "bastion_vm_id" {
 }
 
 variable "bastion_cpu_cores" {
-  description = "vCPU cores for the CI bastion VM. Sized for 3 concurrent GitHub Actions runner instances (see scripts/setup-bastion.sh's RUNNER_COUNT) , the work itself is lightweight (git/tofu/helm CLI calls; image builds happen in-cluster via cluster-ci's Kaniko Jobs), so this scales gently with instance count."
+  description = "vCPU cores for the CI bastion VM."
   type        = number
   default     = 4
 }
 
 variable "bastion_memory" {
-  description = "Memory for the CI bastion VM, in MB. Sized for 3 concurrent runner instances , see bastion_cpu_cores."
+  description = "Memory for the CI bastion VM, in MB."
   type        = number
   default     = 6144
 }
 
 variable "bastion_disk_size" {
-  description = "OS disk size for the CI bastion VM, in GB (imported from the openSUSE cloud image, then grown to this size). Needs room for repo checkouts, the GitHub Actions runner, and build workspaces , actual image builds still happen in-cluster via cluster-ci's Kaniko Jobs, not here."
+  description = "OS disk size for the CI bastion VM, in GB."
   type        = number
   default     = 40
 }

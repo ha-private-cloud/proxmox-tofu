@@ -1,27 +1,7 @@
-# Talos machine config patch: lets every node pull/push images from Nexus's
-# docker-hosted repo (see cluster-config/nexus.tf) at registry.talos.lab.
-# Two problems this solves, same "accept self-signed" pattern used
-# throughout this cluster (see talos-oidc-patch.yaml, ingress-nginx values):
-#
-# - No node-level DNS for *.talos.lab (extraHostEntries is the same
-#   mechanism talos-oidc-patch.yaml uses for auth.talos.lab , CoreDNS only
-#   covers in-pod resolution, not containerd/kubelet on the host).
-# - containerd has no trust for ingress-nginx's self-signed default cert,
-#   so pulls would fail TLS verification without insecureSkipVerify.
-#
-# Unlike talos-oidc-patch.yaml (control-plane only), this must be applied
-# to *every* node , each one pulls images independently:
-#
-#   talosctl patch mc --patch-file talos-registry-patch.yaml \
-#     --nodes <node-ip> \
-#     --talosconfig _out/talosconfig
-#
-# Repeat per node (talosctl get members --talosconfig _out/talosconfig to
-# list them). Talos reconciles containerd's config in place , no reboot.
 machine:
   network:
     extraHostEntries:
-      - ip: 192.168.0.16 # talos-worker-1, same host used for the workstation /etc/hosts entries
+      - ip: 192.168.0.16
         aliases:
           - registry.talos.lab
   registries:

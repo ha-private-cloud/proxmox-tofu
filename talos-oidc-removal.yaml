@@ -1,0 +1,14 @@
+# The apiserver refuses to start with these --oidc-* flags alongside --authentication-config.
+cluster:
+  apiServer:
+    extraArgs:
+      oidc-issuer-url:
+        $patch: delete
+      oidc-client-id:
+        $patch: delete
+      oidc-ca-file:
+        $patch: delete
+      oidc-username-claim:
+        $patch: delete
+      oidc-username-prefix:
+        $patch: delete
