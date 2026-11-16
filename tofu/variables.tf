@@ -122,11 +122,11 @@ variable "nodes" {
     "talos-cp-1"     = { vm_id = 901, node_name = "pve" }
     "talos-worker-1" = { vm_id = 902, node_name = "pve" }
     "talos-worker-2" = { vm_id = 903, node_name = "pve" }
-    "talos-cp-2"     = { vm_id = 911, node_name = "pve2" }
-    "talos-worker-3" = { vm_id = 912, node_name = "pve2" }
-    "talos-worker-4" = { vm_id = 913, node_name = "pve2" }
-    "talos-cp-3"     = { vm_id = 921, node_name = "pve3" }
-    "talos-worker-5" = { vm_id = 922, node_name = "pve3" }
+    "talos-worker-3" = { vm_id = 911, node_name = "pve2" }
+    "talos-worker-4" = { vm_id = 912, node_name = "pve2" }
+    "talos-cp-2"     = { vm_id = 913, node_name = "pve2" }
+    "talos-worker-5" = { vm_id = 921, node_name = "pve3" }
+    "talos-cp-3"     = { vm_id = 922, node_name = "pve3" }
     "talos-worker-6" = { vm_id = 923, node_name = "pve3" }
   }
 }

@@ -1,7 +1,11 @@
-resource "proxmox_virtual_environment_vm" "talos" {
-  for_each = var.nodes
+locals {
+  talos_vms = { for name, node in var.nodes : tostring(node.vm_id) => merge(node, { name = name }) }
+}
 
-  name      = each.key
+resource "proxmox_virtual_environment_vm" "talos" {
+  for_each = local.talos_vms
+
+  name      = each.value.name
   node_name = each.value.node_name
   vm_id     = each.value.vm_id
 

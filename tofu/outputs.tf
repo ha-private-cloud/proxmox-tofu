@@ -1,6 +1,6 @@
 output "vm_ids" {
   description = "Map of VM name to Proxmox VM ID"
-  value       = { for k, v in proxmox_virtual_environment_vm.talos : k => v.vm_id }
+  value       = { for v in proxmox_virtual_environment_vm.talos : v.name => v.vm_id }
 }
 
 output "nfs_vm_id" {
