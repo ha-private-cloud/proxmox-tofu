@@ -64,6 +64,9 @@ rm -f /tmp/actions-runner.tar.gz
 echo "==> Creating ~/project (sibling repo layout cluster-cli expects)"
 sudo -u "$RUNNER_USER" mkdir -p "${RUNNER_HOME}/project"
 
+echo "==> Keeping ${RUNNER_USER}'s runtime directory so rootless podman works from the runner service"
+loginctl enable-linger "$RUNNER_USER"
+
 echo "==> Removing the sync-repos timer if present"
 systemctl disable --now sync-repos.timer >/dev/null 2>&1 || true
 rm -f /etc/systemd/system/sync-repos.timer /etc/systemd/system/sync-repos.service
