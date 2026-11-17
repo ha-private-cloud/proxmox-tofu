@@ -7,7 +7,7 @@ This repository contains the base infrastructure for ClusterKeep, the virtual ma
 | VMs | Where | What they're for |
 |---|---|---|
 | 9 Talos VMs: 3 control planes and 6 workers | One control plane and two workers on each of `pve`, `pve2` and `pve3` | The Kubernetes cluster. Each has 4 cores, 4 GB of memory and a 32 GB disk |
-| `nfs-storage-pve2` and `nfs-storage-pve3` | One each on `pve2` and `pve3` | Debian NFS servers with a 200 GB data disk each. These hold every persistent volume |
+| `nfs-storage-pve2` and `nfs-storage-pve3` | One each on `pve2` and `pve3` | A highly available Debian NFS pair. Each has a 235 GB data disk, mirrored between them with DRBD, and together they hold every persistent volume |
 | `ci-bastion` | `pve` | openSUSE VM that runs the GitHub Actions runners, the internal DNS and the files that can't live in Git |
 
 OpenTofu tracks the Talos VMs by their VM ID, so renaming one in `nodes` only changes its name.
@@ -44,13 +44,27 @@ talosctl --talosconfig _out/talosconfig -n <control-plane-ip> -e <control-plane-
 
 ## NFS storage VMs
 
-After the VMs are created, set each one up over SSH:
+The two NFS VMs are one active/passive service. DRBD mirrors the data disk between them synchronously, so a write is on both hosts before it's acknowledged. Pacemaker runs the mount, the NFS server, the export and the shared service address on whichever VM holds the DRBD primary, and moves all of them to the other VM if that one fails. Every StorageClass points at the shared address, so the cluster never needs to know which VM is serving.
+
+A quorum device on the bastion breaks ties between the two. Each VM has a Proxmox i6300ESB watchdog set to reset it, and SBD uses that watchdog to reset a VM that loses quorum, so the other one can take over without both writing to the disk.
+
+Prepare each VM over SSH first. The script installs the packages, leaves the NFS server to Pacemaker and makes sure the i6300ESB is always `/dev/watchdog0`.
 
 ```sh
 ssh admin@<nfs-vm-ip> 'sudo bash -s' < scripts/setup-nfs-server.sh
 ```
 
-The script formats and mounts the data disk at `/srv/nfs/data` and exports it to the local network. `cluster-config` turns each export into a StorageClass. The two exports are separate, not replicated.
+Building the pair is a one-off after that.
+
+1. Form the cluster with `pcs`, add the bastion as a `net` quorum device, and set the device's `timeout` to 5000 and `sync_timeout` to 8000. SBD won't trust the quorum device if its sync timeout is longer than the watchdog timeout, and Pacemaker never starts.
+2. Turn on SBD with `pcs stonith sbd enable watchdog=/dev/watchdog0 SBD_WATCHDOG_TIMEOUT=10`, restart the cluster, then set `stonith-watchdog-timeout=20` and `stonith-enabled=true`.
+3. Write the DRBD resource `nfs` to `/etc/drbd.d/` on both VMs with protocol C, a shared secret and the `crm-fence-peer.sh` handlers. Create its metadata with `drbdadm -- --force create-md nfs`, since `create-md` reads its confirmation from the terminal. On a disk that already holds data, the metadata goes in the space past the filesystem, so grow the disk first.
+4. On the VM with the data, make DRBD primary and lay the filesystem out as `data/` for the volumes and `nfsinfo/` for the NFS server's state, then mount it at `/srv/nfs`.
+5. Create the Pacemaker resources: a promotable DRBD clone and a group of `Filesystem` on `/srv/nfs`, `nfsserver` with `nfs_shared_infodir=/srv/nfs/nfsinfo` and a 90 second start timeout, `exportfs` for `/srv/nfs/data`, then `IPaddr2` for the shared address. Colocate the group with the promoted clone and start it after promotion.
+
+If an fstab entry for the data disk is removed, run `systemctl daemon-reload` before starting the NFS server. Otherwise systemd keeps waiting for the old mount and the start times out.
+
+Check the pair with `sudo crm_mon -1r` and `sudo drbdadm status nfs`. `sudo pcs node standby <vm>` moves the service off a VM for maintenance, and `sudo pcs node unstandby <vm>` brings it back. Resources stay where they are afterwards rather than moving straight back.
 
 ## CI bastion
 
