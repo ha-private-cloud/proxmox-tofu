@@ -86,6 +86,12 @@ resource "proxmox_virtual_environment_vm" "nfs" {
     enabled = false
   }
 
+  watchdog {
+    enabled = true
+    model   = "i6300esb"
+    action  = "reset"
+  }
+
   operating_system {
     type = "l26"
   }

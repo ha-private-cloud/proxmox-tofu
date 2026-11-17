@@ -91,7 +91,7 @@ variable "nfs_os_disk_size" {
 variable "nfs_data_disk_size" {
   description = "Size of the dedicated data disk exported over NFS, in GB"
   type        = number
-  default     = 200
+  default     = 235
 }
 
 variable "nfs_debian_cloud_image_url" {
